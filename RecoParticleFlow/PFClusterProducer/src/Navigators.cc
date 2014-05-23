@@ -6,6 +6,7 @@
 #include "RecoParticleFlow/PFClusterProducer/interface/PFRecHitCaloNavigatorWithTime.h"
 #include "RecoParticleFlow/PFClusterProducer/interface/PFECALHashNavigator.h"
 
+
 class PFRecHitEcalBarrelNavigatorWithTime : public PFRecHitCaloNavigatorWithTime<EBDetId,EcalBarrelTopology> {
  public:
   PFRecHitEcalBarrelNavigatorWithTime(const edm::ParameterSet& iConfig):
@@ -17,7 +18,7 @@ class PFRecHitEcalBarrelNavigatorWithTime : public PFRecHitCaloNavigatorWithTime
   void beginEvent(const edm::EventSetup& iSetup) {
     edm::ESHandle<CaloGeometry> geoHandle;
     iSetup.get<CaloGeometryRecord>().get(geoHandle);
-    topology_ = new EcalBarrelTopology(geoHandle);
+    topology_.reset( new EcalBarrelTopology(geoHandle) );
   }
 };
 
@@ -32,7 +33,7 @@ class PFRecHitEcalEndcapNavigatorWithTime : public PFRecHitCaloNavigatorWithTime
   void beginEvent(const edm::EventSetup& iSetup) {
     edm::ESHandle<CaloGeometry> geoHandle;
     iSetup.get<CaloGeometryRecord>().get(geoHandle);
-    topology_ = new EcalEndcapTopology(geoHandle);
+    topology_.reset( new EcalEndcapTopology(geoHandle) );
   }
 };
 
@@ -45,7 +46,7 @@ class PFRecHitEcalBarrelNavigator : public PFRecHitCaloNavigator<EBDetId,EcalBar
   void beginEvent(const edm::EventSetup& iSetup) {
     edm::ESHandle<CaloGeometry> geoHandle;
     iSetup.get<CaloGeometryRecord>().get(geoHandle);
-    topology_ = new EcalBarrelTopology(geoHandle);
+    topology_.reset( new EcalBarrelTopology(geoHandle) );
   }
 };
 
@@ -58,7 +59,7 @@ class PFRecHitEcalEndcapNavigator : public PFRecHitCaloNavigator<EEDetId,EcalEnd
   void beginEvent(const edm::EventSetup& iSetup) {
     edm::ESHandle<CaloGeometry> geoHandle;
     iSetup.get<CaloGeometryRecord>().get(geoHandle);
-    topology_ = new EcalEndcapTopology(geoHandle);
+    topology_.reset( new EcalEndcapTopology(geoHandle) );
   }
 };
 
@@ -72,22 +73,23 @@ class PFRecHitPreshowerNavigator : public PFRecHitCaloNavigator<ESDetId,EcalPres
   void beginEvent(const edm::EventSetup& iSetup) {
     edm::ESHandle<CaloGeometry> geoHandle;
     iSetup.get<CaloGeometryRecord>().get(geoHandle);
-    topology_ = new EcalPreshowerTopology(geoHandle);
+    topology_.reset( new EcalPreshowerTopology(geoHandle) );
   }
 };
 
 
-class PFRecHitHCALNavigator : public PFRecHitCaloNavigator<HcalDetId,HcalTopology> {
+class PFRecHitHCALNavigator : public PFRecHitCaloNavigator<HcalDetId,HcalTopology,false> {
  public:
   PFRecHitHCALNavigator(const edm::ParameterSet& iConfig) {
 
   }
 
 
-  void beginEvent(const edm::EventSetup& iSetup) {
+  void beginEvent(const edm::EventSetup& iSetup) {    
       edm::ESHandle<HcalTopology> hcalTopology;
       iSetup.get<HcalRecNumberingRecord>().get( hcalTopology );
-      topology_ = hcalTopology.product();
+      topology_.release();
+      topology_.reset(hcalTopology.product());
   }
 };
 
@@ -98,15 +100,12 @@ class PFRecHitCaloTowerNavigator : public PFRecHitCaloNavigator<CaloTowerDetId,C
 
   }
 
-
   void beginEvent(const edm::EventSetup& iSetup) {
-      edm::ESHandle<HcalTopology> hcalTopology;
-      iSetup.get<HcalRecNumberingRecord>().get( hcalTopology );
-      hcalTopo_ = hcalTopology.product();
-      topology_ = new CaloTowerTopology(hcalTopo_);
+    edm::ESHandle<HcalTopology> hcalTopology;
+    iSetup.get<HcalRecNumberingRecord>().get( hcalTopology );
+    topology_.reset( new CaloTowerTopology( hcalTopology.product() ) );    
   }
-private:
-  const HcalTopology* hcalTopo_;
+private:  
 };
 
 typedef PFRecHitDualNavigator<PFLayer::ECAL_BARREL,
@@ -132,3 +131,4 @@ DEFINE_EDM_PLUGIN(PFRecHitNavigationFactory, PFRecHitECALNavigatorWithTime, "PFR
 DEFINE_EDM_PLUGIN(PFRecHitNavigationFactory, PFRecHitCaloTowerNavigator, "PFRecHitCaloTowerNavigator");
 DEFINE_EDM_PLUGIN(PFRecHitNavigationFactory, PFRecHitPreshowerNavigator, "PFRecHitPreshowerNavigator");
 DEFINE_EDM_PLUGIN(PFRecHitNavigationFactory, PFRecHitHCALNavigator, "PFRecHitHCALNavigator");
+
