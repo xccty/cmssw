@@ -646,7 +646,8 @@ std::vector< std::vector<int> > Arbor( std::vector<TVector3> inputHits, float Ce
 	BranchBuilding();	
 	BushMerging();
 
-	return LengthSortBranchCollection;
+	// return LengthSortBranchCollection;
+	return Trees; 
 
 }
 }

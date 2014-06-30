@@ -36,6 +36,15 @@ _arborClusterizer_HGCEE = cms.PSet(
     minFractionToKeep = cms.double(1e-7)
 )
 
+#topo clusters
+_ManqiArborClusterizer_HGCEE = cms.PSet(
+        algoName = cms.string("SimpleArborClusterizer"),
+            cellSize = cms.double(10.0),
+            layerThickness = cms.double(16.0),
+            thresholdsByDetector = cms.VPSet()
+        )
+
+
 #weights for layers from P.Silva (24 June 2014)
 weight_vec = [0.42]
 weight_vec.extend([1.00 for x in range(10)])
@@ -63,7 +72,7 @@ particleFlowClusterHGCEE = cms.EDProducer(
     recHitsSource = cms.InputTag("particleFlowRecHitHGCEE"),
     recHitCleaners = cms.VPSet(),
     seedFinder = _noseeds_HGCEE,
-    initialClusteringStep = _arborTopoClusterizer_HGCEE,
+    initialClusteringStep = _ManqiArborClusterizer_HGCEE,
     pfClusterBuilder = cms.PSet( ), #_arborClusterizer_HGCEE,
     positionReCalc = cms.PSet( ), #_simplePosCalcHGCEE,
     energyCorrector = _HGCEE_ElectronEnergy

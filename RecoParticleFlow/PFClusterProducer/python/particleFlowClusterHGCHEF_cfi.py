@@ -19,12 +19,20 @@ _arborTopoClusterizer_HGCHEF = cms.PSet(
     thresholdsByDetector = cms.VPSet( )
 )
 
+#Manqi clusters
+_ManqiArborClusterizer_HGCEE = cms.PSet(
+        algoName = cms.string("SimpleArborClusterizer"),
+            cellSize = cms.double(10.0),
+            layerThickness = cms.double(56.0),
+            thresholdsByDetector = cms.VPSet()
+        )
+
 particleFlowClusterHGCHEF = cms.EDProducer(
     "PFClusterProducer",
     recHitsSource = cms.InputTag("particleFlowRecHitHGCHEF"),
     recHitCleaners = cms.VPSet(),
     seedFinder = _noseeds_HGCHEF,
-    initialClusteringStep = _arborTopoClusterizer_HGCHEF,
+    initialClusteringStep = _ManqiArborClusterizer_HGCEE,
     pfClusterBuilder = cms.PSet( ),
     positionReCalc = cms.PSet(),
     energyCorrector = cms.PSet()

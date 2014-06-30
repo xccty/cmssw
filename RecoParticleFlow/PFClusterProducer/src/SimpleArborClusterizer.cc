@@ -38,8 +38,10 @@ buildClusters(const edm::Handle<reco::PFRecHitCollection>& input,
     if( !rechitMask[i] ) continue;
     const math::XYZPoint& pos = hits[i].position();
     hits_for_arbor.emplace_back(i);
-    arbor_points.emplace_back(pos.x(),pos.y(),pos.z());
+    arbor_points.emplace_back(pos.x()*10,pos.y()*10,pos.z()*10); // cm -> mm
   }
+
+  std::cout<<"XXXXXXXXXXXXXXXXXXXXXXXX ArborHitSize "<<arbor_points.size()<<std::endl; 
 
   branches = arbor::Arbor(arbor_points,_cellSize,_layerThickness);
   output.reserve(branches.size());
