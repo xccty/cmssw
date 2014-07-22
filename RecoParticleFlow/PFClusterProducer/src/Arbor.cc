@@ -1,14 +1,17 @@
 #include <RecoParticleFlow/PFClusterProducer/interface/Arbor.hh>
-#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include <RecoParticleFlow/PFClusterProducer/interface/ArborHit.hh>
 #include <TTree.h>
 #include <algorithm>
 #include <TMath.h>
 
-namespace arbor {
-using namespace std;
+//#define DEBUG
 
-std::vector<TVector3> cleanedHits;
-  
+namespace arbor{
+
+using namespace std; 
+
+std::vector<ArborHit> cleanedHits;
+
 std::vector<int> LeafHitsIndex; 
 std::vector<int> JointHitsIndex; 
 std::vector<int> StarJointHitsIndex; 
@@ -45,34 +48,19 @@ void init( float CellSize, float LayerThickness ) {
 	alliterlinks.clear();
 	links_debug.clear();
 
-	/*
-	float Thr_1, Thr_2;		//Ecal Layer Thickness might be changed...
-	Thr_1 = 2*LayerThickness; 
-	Thr_2 = sqrt( LayerThickness*LayerThickness + 8 * CellSize*CellSize );
-
-	if(Thr_1 < Thr_2) InitLinkThreshold = Thr_1;
-	else InitLinkThreshold = Thr_2; 
-	*/
-
 	InitLinkThreshold = 2*LayerThickness - 0.01; 
 	IterLinkThreshold = InitLinkThreshold * 2.5;
 
-	edm::LogVerbatim("ArborInfo") <<endl<<"Thresholds"<<endl<<endl;
-	edm::LogVerbatim("ArborInfo") <<"Init/Iter Threshold "<<InitLinkThreshold<<" : "<<IterLinkThreshold<<endl<<endl;
-
+#ifdef DEBUG
+	cout<<endl<<"Thresholds"<<endl<<endl;
+	cout<<"Init/Iter Threshold "<<InitLinkThreshold<<" : "<<IterLinkThreshold<<endl<<endl;
+#endif
 }
 
-void HitsCleaning(std::vector<TVector3> inputHits )
+void HitsCleaning( std::vector<ArborHit> inputHits )
 {
-  cleanedHits = std::move(inputHits);        //Cannot Really do much things here. Mapping before calling
-  NHits = cleanedHits.size();
-  /*
-    for(int i = 0; i < NHits; i ++)
-    {
-    if(BarrelFlag(cleanedHits[i]))
-    cout<<cleanedHits[i].Z()<<endl; 
-    }
-  */
+        cleanedHits = inputHits;        //Cannot Really do much things here. Mapping before calling
+        NHits = cleanedHits.size();
 }
 
 void HitsClassification( linkcoll inputLinks )
@@ -131,19 +119,21 @@ void HitsClassification( linkcoll inputLinks )
 		}
 		else
 		{
-		  edm::LogWarning("ArborWarning") <<"WARNING: UNCLASSIFIED HITS, Begin Index: "<<BeginIndex[i1]<<",  End Index:  "<<EndIndex[i1]<<endl; 
+			cout<<"WARNING: UNCLASSIFIED HITS, Begin Index: "<<BeginIndex[i1]<<",  End Index:  "<<EndIndex[i1]<<endl; 
 		}
         }
 
-	edm::LogVerbatim("ArborInfo") <<"Verification of Hits Classification: "<<endl;
-	edm::LogVerbatim("ArborInfo") <<"Seed - Simple/Star: "<<SimpleSeedHitsIndex.size()<<" : "<<StarSeedHitsIndex.size()<<endl;
-	edm::LogVerbatim("ArborInfo") <<"Joint - Simple/Star: "<<JointHitsIndex.size()<<" : "<<StarJointHitsIndex.size()<<endl;
-	edm::LogVerbatim("ArborInfo") <<"Leaves: "<<LeafHitsIndex.size()<<endl;
-	edm::LogVerbatim("ArborInfo") <<"IsoHits: "<<IsoHitsIndex.size()<<endl; 
-	edm::LogVerbatim("ArborInfo") <<"TotalHits: "<<NHits<<endl; 
+#ifdef DEBUG
+	cout<<"Verification of Hits Classification: "<<endl;
+	cout<<"Seed - Simple/Star: "<<SimpleSeedHitsIndex.size()<<" : "<<StarSeedHitsIndex.size()<<endl;
+	cout<<"Joint - Simple/Star: "<<JointHitsIndex.size()<<" : "<<StarJointHitsIndex.size()<<endl;
+	cout<<"Leaves: "<<LeafHitsIndex.size()<<endl;
+	cout<<"IsoHits: "<<IsoHitsIndex.size()<<endl; 
+	cout<<"TotalHits: "<<NHits<<endl; 
+#endif
 }
 
-linkcoll LinkClean(const std::vector<TVector3>& allhits, linkcoll alllinks )
+linkcoll LinkClean( std::vector<ArborHit> allhits, linkcoll alllinks )
 {
 	linkcoll cleanedlinks; 
 
@@ -175,7 +165,7 @@ linkcoll LinkClean(const std::vector<TVector3>& allhits, linkcoll alllinks )
 
         for(int i1 = 0; i1 < NHits; i1++)
         {
-                PosB = cleanedHits[i1];
+                PosB = cleanedHits[i1].GetPosition();
                 MinAngleIndex = -10;
                 MinAngle = 1E6;
 
@@ -185,7 +175,7 @@ linkcoll LinkClean(const std::vector<TVector3>& allhits, linkcoll alllinks )
 
                 for(int k1 = 0; k1 < Ncurrhitlinks; k1++)
                 {
-                        PosA = cleanedHits[ currhitlink[k1] ];
+                        PosA = cleanedHits[ currhitlink[k1] ].GetPosition();
                         DirAngle = (PosA + PosB).Angle(PosB - PosA);		//Replace PosA + PosB with other order parameter ~ reference direction
                         tmpOrder = (PosB - PosA).Mag() * (DirAngle + 0.1);
                         if( tmpOrder < MinAngle ) // && DirAngle < 2.5 )
@@ -203,8 +193,9 @@ linkcoll LinkClean(const std::vector<TVector3>& allhits, linkcoll alllinks )
                 }
         }
 
-	edm::LogVerbatim("ArborInfo") <<"NStat "<<NHits<<" : "<<NLinks<<" InitLinks "<<InitLinks.size()<<endl;
-
+#ifdef DEBUG
+        cout<<"NStat "<<NHits<<" : "<<NLinks<<" InitLinks "<<InitLinks.size()<<endl;
+#endif
 	return cleanedlinks;
 }
 
@@ -212,102 +203,62 @@ void BuildInitLink()
 {
 	Links.clear();	//all tmp links
 	TVector3 PosA, PosB, PosDiffAB; 
+	int NLayer_A = 0;
+	int NLayer_B = 0; 
+	int NStave_A = 0; 
+	int NStave_B = 0;
 
 	for(int i0 = 0; i0 < NHits; i0++)
 	{
-		PosA = cleanedHits[i0];
+		PosA = cleanedHits[i0].GetPosition();
+		NLayer_A = cleanedHits[i0].GetLayer();
+		NStave_A = cleanedHits[i0].GetStave();
+
 		for(int j0 = i0 + 1; j0 < NHits; j0++)
 		{
-			PosB = cleanedHits[j0];
+			PosB = cleanedHits[j0].GetPosition();
+			NLayer_B = cleanedHits[j0].GetLayer();
+			NStave_B = cleanedHits[j0].GetStave();	
+
 			PosDiffAB = PosA - PosB;
 			
-			if( PosDiffAB.Mag() < InitLinkThreshold ) // || ( PosDiffAB.Mag() < 1.6*InitLinkThreshold && PosDiffAB.Dot(PosB) < 0.9*PosDiffAB.Mag()*PosB.Mag() )  )	//Distance threshold to be optimized - should also depends on Geometry
+			if( PosDiffAB.Mag() < InitLinkThreshold )  // || ( PosDiffAB.Mag() < 1.6*InitLinkThreshold && PosDiffAB.Dot(PosB) < 0.9*PosDiffAB.Mag()*PosB.Mag() )  )	//Distance threshold to be optimized - should also depends on Geometry
 			{
 				std::pair<int, int> a_Link;
-				if( PosA.Mag() > PosB.Mag() )
+
+				if( NStave_A != NStave_B || ( NLayer_A == 0 && NLayer_B != 0 ) || ( NLayer_B == 0 && NLayer_A != 0 ) )
 				{
-					a_Link.first = j0;
-					a_Link.second = i0; 
+					if( PosA.Mag() > PosB.Mag() )
+					{
+						a_Link.first = j0;
+                                                a_Link.second = i0;
+					}
+					else
+					{
+						a_Link.first = i0;
+						a_Link.second = j0;
+					}
+					Links.push_back(a_Link);
 				}
-				else
+				else if( NLayer_A != NLayer_B && NStave_A == NStave_B )
 				{
-					a_Link.first = i0;
-					a_Link.second = j0;
+					if( NLayer_A > NLayer_B )
+					{
+						a_Link.first = j0;
+						a_Link.second = i0; 
+					}
+					else
+					{
+						a_Link.first = i0;
+						a_Link.second = j0;
+					}
+					Links.push_back(a_Link);
 				}
-				Links.push_back(a_Link);
 			}
 		}
 	}
 
 	links_debug = Links; 
-}
-
-void EndPointLinkIteration()
-{
-
-	Links.clear();
-	Links = InitLinks; 
-
-	int NLeaves = LeafHitsIndex.size();
-	int NStarSeeds = StarSeedHitsIndex.size();
-	int NSimpleSeeds = SimpleSeedHitsIndex.size();
-
-	TVector3 PosLeaf, PosOldSeed, Diff_Leaf_OldSeed; 
-	int LeafIndex, OldSeedIndex; 
-	std::pair<int, int> tmplink; 
-	bool LinkOrientation; 
-
-	//Set of reference directions...  Pos_L, Pos_S, Dir_L, Dir_S
-	//Cleaning... to reduce the ambigorious
-	//loop breaker?
-
-	for(int i0 = 0; i0 < NLeaves; i0++)
-	{
-		LeafIndex = LeafHitsIndex[i0];
-		PosLeaf = cleanedHits[ LeafIndex ];	//Depth??
-
-		for(int j0 = 0; j0 < NSimpleSeeds + NStarSeeds; j0++)
-		{
-			if(j0 < NSimpleSeeds)
-			{
-				OldSeedIndex = SimpleSeedHitsIndex[j0];
-			}
-			else
-			{
-				OldSeedIndex = StarSeedHitsIndex[j0 - NSimpleSeeds];
-			}
-			PosOldSeed = cleanedHits[ OldSeedIndex ];
-		
-			Diff_Leaf_OldSeed = PosLeaf - PosOldSeed; 
-
-			LinkOrientation = 0;
-
-			if( Diff_Leaf_OldSeed.Mag() < IterLinkThreshold ) 
-			{
-				if( ( BarrelFlag(PosLeaf) && BarrelFlag(PosOldSeed) ) )	//HitisBarrel
-				{
-					if( PosLeaf.Perp()  < PosOldSeed.Perp() ) 
-						LinkOrientation = 1; 						
-				} 
-				else if( ( !BarrelFlag(PosLeaf) && !BarrelFlag(PosOldSeed) )  )
-				{
-					if( fabs(PosLeaf.Z()) < fabs(PosOldSeed.Z()) )
-						LinkOrientation = 1;
-				}
-
-				if( LinkOrientation && Diff_Leaf_OldSeed.Angle(PosOldSeed) < 1.0  )	//Still Need to compare with reference directions...
-				{
-					tmplink.first = LeafIndex;
-					tmplink.second = OldSeedIndex; 
-					Links.push_back(tmplink);
-					edm::LogVerbatim("ArborInfo") <<"New Link added in EPLinkIteration"<<endl;
-				}
-			}
-		}
-	}
-
-	// cout<<endl<<" NSeed: "<< NSimpleSeeds  + NStarSeeds << "  NLeaves:  "<< NLeaves <<" NInitLink "<<InitLinks.size()<<" : "<<"NCurrLink: "<<IterLinks.size()<<endl<<endl;
-
 }
 
 void LinkIteration()	//Energy corrections, semi-local correction
@@ -317,21 +268,26 @@ void LinkIteration()	//Energy corrections, semi-local correction
 	alliterlinks = InitLinks;
 	int NInitLinks = InitLinks.size();
 	TVector3 hitPos, PosA, PosB, DiffPosAB, linkDir; 
+	int NLayer_A = 0; 
+	int NLayer_B = 0; 
+	int NStave_A = 0;
+	int NStave_B = 0; 
 	std::pair<int, int> currlink; 
+	std::pair<int, int> a_Link; 
 
 	TVector3 RefDir[NHits];
 
 	for(int i = 0; i < NHits; i++)
 	{
-		hitPos = cleanedHits[i];
+		hitPos = cleanedHits[i].GetPosition();
 		RefDir[i] = 1.0/hitPos.Mag() * hitPos;
 	}
 
 	for(int j = 0; j < NInitLinks; j++)
 	{
 		currlink = InitLinks[j];
-		PosA = cleanedHits[ currlink.first ];
-		PosB = cleanedHits[ currlink.second ];
+		PosA = cleanedHits[ currlink.first ].GetPosition();
+		PosB = cleanedHits[ currlink.second ].GetPosition();
 		linkDir = (PosA - PosB);		//Links are always from first point to second - verify
 		linkDir *= 1.0/linkDir.Mag(); 
 		RefDir[currlink.first] += 2*linkDir; 	//Weights... might be optimized...
@@ -341,28 +297,53 @@ void LinkIteration()	//Energy corrections, semi-local correction
 	for(int i1 = 0; i1 < NHits; i1++)
 	{
 		RefDir[i1] *= 1.0/RefDir[i1].Mag();
-		PosA = cleanedHits[i1];
+		PosA = cleanedHits[i1].GetPosition();
+		NLayer_A = cleanedHits[i1].GetLayer();
+		NStave_A = cleanedHits[i1].GetStave();
 
 		for(int j1 = i1 + 1; j1 < NHits; j1++)	
 		{
-			PosB = cleanedHits[j1];
+			PosB = cleanedHits[j1].GetPosition();
+			NLayer_B = cleanedHits[j1].GetLayer();
+			NStave_B = cleanedHits[j1].GetStave();
 			DiffPosAB = PosB - PosA; 
 
-			if( DiffPosAB.Mag() < IterLinkThreshold && DiffPosAB.Mag() > InitLinkThreshold && DiffPosAB.Angle(RefDir[i1]) < 0.8 )	
+			if( DiffPosAB.Mag() < IterLinkThreshold && DiffPosAB.Mag() > InitLinkThreshold && DiffPosAB.Angle(RefDir[i1]) < 0.8 )	//allow link in same layer? better not even in iterations...
 			{
 
-				if( PosA.Mag() > PosB.Mag() )
-				{
-					currlink.first = j1;
-					currlink.second = i1;
-				}
-				else
-				{
-					currlink.first = i1;
-					currlink.second = j1;
-				}
+				if(NLayer_A != NLayer_B)
+				{	
 
-				alliterlinks.push_back(currlink);
+					if( NStave_A != NStave_B || ( NLayer_A == 0 && NLayer_B != 0 ) || ( NLayer_B == 0 && NLayer_A != 0 ) )
+					{
+						if( PosA.Mag() > PosB.Mag() )
+						{
+							a_Link.first = j1;
+							a_Link.second = i1;
+						}
+						else
+						{
+							a_Link.first = i1;
+							a_Link.second = j1;
+						}
+						alliterlinks.push_back(a_Link);
+					}
+					else if( NLayer_A != NLayer_B && NStave_A == NStave_B)
+					{
+						if( NLayer_A > NLayer_B )
+						{
+							a_Link.first = j1;
+							a_Link.second = i1;
+						}
+						else
+						{
+							a_Link.first = i1;
+							a_Link.second = j1;
+						}
+						alliterlinks.push_back(a_Link);
+					}
+
+				}
 			} 
 		}
 	}
@@ -394,7 +375,7 @@ void LinkIteration()	//Energy corrections, semi-local correction
 
 	for(int i2 = 0; i2 < NHits; i2++)
 	{
-		PosB = cleanedHits[i2];
+		PosB = cleanedHits[i2].GetPosition();
 		MinAngleIndex = -10;
 		MinAngle = 1E6;
 
@@ -404,7 +385,7 @@ void LinkIteration()	//Energy corrections, semi-local correction
 
 		for(int j2 = 0; j2 < Ncurrhitlinks; j2++)
 		{
-			PosA = cleanedHits[ currhitlink[j2] ];
+			PosA = cleanedHits[ currhitlink[j2] ].GetPosition();
 			DirAngle = (RefDir[i2]).Angle(PosA - PosB);
 			tmpOrder = (PosB - PosA).Mag() * (DirAngle + 1.0);
 			if(tmpOrder < MinAngle) //  && DirAngle < 1.0)
@@ -422,13 +403,14 @@ void LinkIteration()	//Energy corrections, semi-local correction
 		}
 	}	
 
-	edm::LogVerbatim("ArborInfo") <<"Init-Iter Size "<<InitLinks.size()<<" : "<<IterLinks.size()<<endl;
-
+#ifdef DEBUG
+	cout<<"Init-Iter Size "<<InitLinks.size()<<" : "<<IterLinks.size()<<endl;
+#endif
 }
 
-void BranchBuilding()
+void BranchBuilding( float NeighbourThreshold )
 {
-	edm::LogVerbatim("ArborInfo") <<"Build Branch"<<endl;
+//	cout<<"Build Branch"<<endl;
 
 	int NLinks = IterLinks.size();
 	int NBranches = 0;
@@ -448,41 +430,49 @@ void BranchBuilding()
 	{
 		HitBeginIndex[ (IterLinks[j1].first) ] ++;
 		HitEndIndex[ (IterLinks[j1].second) ] ++;
+
+		if(IterLinks[j1].first == IterLinks[j1].second)
+		{
+			cout<<"Self linking "<<IterLinks[j1].first<<endl; 
+			exit(7);
+		}
 	}
 
 	int iterhitindex = 0; 
 	int FlagInternalLoop = 0;
+	int LL = 0; 
+
 	for(int i2 = 0; i2 < NHits; i2++)
 	{
 		if(HitEndIndex[i2] > 1)
-		  edm::LogWarning("ArborWarning") <<"WARNING OF INTERNAL LOOP with more than 1 link stopped at the same Hit"<<endl;
-
-		// cout<<"Begin/End Index "<<HitBeginIndex[i2]<<" : "<<HitEndIndex[i2]<<endl;
+			cout<<"WARNING OF INTERNAL LOOP with more than 1 link stopped at the same Hit"<<endl;
 
 		if(HitBeginIndex[i2] == 0 && HitEndIndex[i2] == 1)	//EndPoint
 		{
-			NBranches ++; 	
 			std::vector<int> currBranchhits;  	//array of indexes			
 			iterhitindex = i2; 
 			FlagInternalLoop = 0;
 			currBranchhits.push_back(i2);		
+			LL = 0; 
 
-			while(FlagInternalLoop == 0 && HitEndIndex[iterhitindex] != 0)
+			while(FlagInternalLoop == 0 && HitEndIndex[iterhitindex] != 0 && LL < 50)
 			{
-
+		
 				for(int j2 = 0; j2 < NLinks; j2++)
 				{
 					std::pair<int, int> PairIterator = IterLinks[j2];
-					if(PairIterator.second == iterhitindex)
+					if(  PairIterator.second == iterhitindex && std::find(currBranchhits.begin(), currBranchhits.end(), PairIterator.first) == currBranchhits.end() )
 					{
 						currBranchhits.push_back(PairIterator.first);
 						iterhitindex = PairIterator.first;
 						break; 
 					}
 				}
+				LL++;	//Only a stupid protection...
 			}
 
 			InitBranchCollection.push_back(currBranchhits);
+			NBranches ++;
 		}
 	}
 
@@ -559,14 +549,14 @@ void BranchBuilding()
 			branch_B = LengthSortBranchCollection[j7];
 			SeedIndex_B = SortedBranchToOriginal[branch_B];
 
-			DisSeed = cleanedHits[ SeedIndex_A ] - cleanedHits[ SeedIndex_B ];
+			DisSeed = cleanedHits[ SeedIndex_A ].GetPosition() - cleanedHits[ SeedIndex_B ].GetPosition();
 
 			if(  SeedIndex_A == SeedIndex_B )
 			{
 				FlagSBMerge[i7][j7] = 1.0;
 				FlagSBMerge[j7][i7] = 1.0;
 			}
-			else if( DisSeed.Mag() < 20 )
+			else if( DisSeed.Mag() < NeighbourThreshold )
 			{
 				FlagSBMerge[i7][j7] = 2.0;
 				FlagSBMerge[j7][i7] = 2.0;
@@ -582,72 +572,22 @@ void BranchBuilding()
 
 void BushMerging()
 {
-	edm::LogVerbatim("ArborInfo") <<"Merging branch"<<endl;
-
-	int NBranch = LengthSortBranchCollection.size();
-	std::vector<int> currbranch; 
-
-	for(int i = 0; i < NBranch; i++)
-	{
-		currbranch = LengthSortBranchCollection[i];
-	}
-
+	cout<<"Merging branch"<<endl;
 }
 
-void BushAbsorbing()
-{
-	edm::LogVerbatim("ArborInfo") <<"Absorbing Isolated branches"<<endl;
-}
-
-void MakingCMSCluster() // edm::Event& Event, const edm::EventSetup& Setup )
-{
-
-	edm::LogVerbatim("ArborInfo") <<"Try to Make CMS Cluster"<<endl;
-
-	int NBranches = LengthSortBranchCollection.size();
-	int NHitsInBranch = 0;
-	TVector3 Seed, currHit; 
-	std::vector<int> currBranch; 
-
-	for(int i0 = 0; i0 < NBranches; i0++)
-	{
-		currBranch = LengthSortBranchCollection[i0];
-		NHitsInBranch = currBranch.size();
-
-		edm::LogVerbatim("ArborInfo") <<i0<<" th Track has "<<currBranch.size()<<" Hits "<<endl;
-		edm::LogVerbatim("ArborInfo") <<"Hits Index "<<endl; 
-
-		for(int j0 = 0; j0 < NHitsInBranch; j0++)
-		{
-			edm::LogVerbatim("ArborInfo") <<currBranch[j0]<<", ";
-
-			currHit = cleanedHits[currBranch[j0]];
-		}
-	}
-}	
-
-std::vector< std::vector<int> > Arbor(std::vector<TVector3> inputHits, float CellSize, float LayerThickness )
+branchcoll Arbor( std::vector<ArborHit> inputHits, float CellSize, float LayerThickness, float ThresholdInNCell )
 {
 	init(CellSize, LayerThickness);
 
-	HitsCleaning( std::move(inputHits) );
+	HitsCleaning(inputHits);
 	BuildInitLink();
 	InitLinks = LinkClean( cleanedHits, Links );
-	
-	/*
-	HitsClassification(InitLinks);
-	EndPointLinkIteration();
-	IterLinks = LinkClean( cleanedHits, Links );
-	*/
+
 	LinkIteration();
 	HitsClassification(IterLinks);	
+	BranchBuilding( ThresholdInNCell*CellSize );	
+	// BushMerging();
 
-	//IterLinks = InitLinks; 
-
-	BranchBuilding();	
-	BushMerging();
-
-	return Trees;
-
+	return LengthSortBranchCollection;
 }
 }

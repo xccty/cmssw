@@ -1,6 +1,8 @@
 #include "SimpleArborClusterizer.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "RecoParticleFlow/PFClusterProducer/interface/Arbor.hh"
+#include "RecoParticleFlow/PFClusterProducer/interface/ArborHit.hh"
+#include "RecoParticleFlow/PFClusterProducer/interface/ArborTool.hh"
 
 #ifdef PFLOW_DEBUG
 #define LOGVERB(x) edm::LogVerbatim(x)
@@ -13,6 +15,8 @@
 #define LOGERR(x) edm::LogError(x)
 #define LOGDRESSED(x) LogDebug(x)
 #endif
+
+using namespace arbor;
 
 namespace {
   bool greaterByEnergy(const std::pair<unsigned,double>& a,
@@ -27,21 +31,32 @@ buildClusters(const edm::Handle<reco::PFRecHitCollection>& input,
 	      const std::vector<bool>& seedable,
 	      reco::PFClusterCollection& output) {  
   const reco::PFRecHitCollection& hits = *input;
-  std::vector<TVector3> arbor_points;
+//  std::vector<TVector3> arbor_points;
+  std::vector< ArborHit > inputABHit;
   std::vector<unsigned> hits_for_arbor;
   arbor::branchcoll branches;  
+  TVector3 currHitPos; 
+  int LayerNum = 0;
+  int StaveNum = 0;  
 
   // get the seeds and sort them descending in energy
-  arbor_points.reserve(hits.size());
+  inputABHit.reserve(hits.size());
   hits_for_arbor.reserve(hits.size());  
   for( unsigned i = 0; i < hits.size(); ++i ) {
     if( !rechitMask[i] ) continue;
     const math::XYZPoint& pos = hits[i].position();
     hits_for_arbor.emplace_back(i);
-    arbor_points.emplace_back(10*pos.x(),10*pos.y(),10*pos.z());
+    //inputABHit.emplace_back(10*pos.x(),10*pos.y(),10*pos.z());
+	
+    currHitPos.SetXYZ(10*pos.x(),10*pos.y(),10*pos.z()); 
+    LayerNum = int(abs(pos.z())); //forgive me!
+
+    ArborHit a_abhit(currHitPos, LayerNum, 0, StaveNum, 0);	//Assume always in the same stave... last arguement refers to subdetectorID
+    inputABHit.emplace_back(a_abhit);
+
   }
 
-  branches = arbor::Arbor(arbor_points,_cellSize,_layerThickness);
+  branches = arbor::Arbor(inputABHit, _cellSize, _layerThickness, _NCellThreshold);
   output.reserve(branches.size());
   
   for( auto& branch : branches ) {
